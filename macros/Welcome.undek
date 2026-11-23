@@ -1,0 +1,8 @@
+// Welcome to Undek Macro.
+// This is a script, not a recording: press F5 to run it, or F6 for a dry
+// run that only shows the timing in the Execution Log.
+Log("Undek Macro is working")
+Wait(300ms, humanize=false)
+
+// Delete this macro once you have your own. The examples folder next to
+// the program has longer ones to borrow from.
