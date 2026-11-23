@@ -1,0 +1,77 @@
+name: Fuzz
+
+# libFuzzer finds in hours what a check finds in minutes, so this runs on a
+# timer instead of on every push. Start it by hand from the Actions tab after a
+# change to the lexer, the parser or the BMP reader.
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: Seconds to spend on each target
+        default: '300'
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure the fuzzers
+        run: >
+          cmake -B build-fuzz -DUNDEK_BUILD_FUZZERS=ON -DUNDEK_BUILD_TESTS=OFF
+          -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+      - name: Build the fuzzers
+        run: cmake --build build-fuzz -j 4
+
+      # The newest corpus wins, so the nightly run starts where the last one
+      # stopped instead of from nothing.
+      - name: Restore the corpus
+        uses: actions/cache@v4
+        with:
+          path: |
+            corpus/script
+            corpus/bmp
+          key: fuzz-corpus-${{ github.run_id }}
+          restore-keys: |
+            fuzz-corpus-
+
+      - name: Seed the corpus
+        run: |
+          mkdir -p corpus/script corpus/bmp
+          cp examples/*.undek corpus/script/ 2>/dev/null || true
+          cp macros/*.undek corpus/script/ 2>/dev/null || true
+          cp examples/*.bmp corpus/bmp/ 2>/dev/null || true
+
+      - name: Fuzz the lexer and parser
+        env:
+          SECONDS_TO_FUZZ: ${{ github.event.inputs.seconds || '300' }}
+        run: >
+          ./build-fuzz/fuzz_script corpus/script
+          -max_total_time=$SECONDS_TO_FUZZ -max_len=8192 -timeout=10
+          -rss_limit_mb=2048 -print_final_stats=1
+
+      - name: Fuzz the BMP reader
+        env:
+          SECONDS_TO_FUZZ: ${{ github.event.inputs.seconds || '300' }}
+        run: >
+          ./build-fuzz/fuzz_bmp corpus/bmp
+          -max_total_time=$SECONDS_TO_FUZZ -max_len=65536 -timeout=10
+          -rss_limit_mb=2048 -print_final_stats=1
+
+      - name: Keep anything that crashed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crash
+          path: |
+            crash-*
+            leak-*
+            timeout-*
+            oom-*
+            fuzz-*.log

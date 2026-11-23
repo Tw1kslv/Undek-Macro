@@ -1,0 +1,17 @@
+profile default_sigma=8
+
+Log("Waiting for screen pixel at (1451, 397) to turn green...")
+
+var click_spot = Point(1451, 397)
+
+// Polls until the target area turns green (e.g. Human Benchmark reaction test: 0x4BDB6A)
+repeat_until PixelAt(1451, 397) == 0x4BDB6A tolerance 35 {
+    Wait(5ms)
+}
+
+// Humanized reaction delay before clicking
+Wait(140ms, humanize=true)
+MouseDown("left")
+Wait(10ms, humanize=true)
+MouseUp("left")
+Log("Reaction click fired")

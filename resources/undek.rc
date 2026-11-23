@@ -1,0 +1,3 @@
+// The app, the tray and the installer all use this one icon. The numbers have
+// to agree with src/editor/AppIcon.h and installer/undek.iss.
+101 ICON "undek.ico"

@@ -1,0 +1,63 @@
+profile default_sigma=12
+
+Log("Starting showcase")
+
+// WaitUntil polls a condition until true or timeout expires
+WaitUntil(PixelAt(640, 360) == 0xFFFFFF tolerance 255, timeout=1500)
+
+// Side mouse buttons (x1/x2) work with MouseDown/MouseUp
+MouseDown("x1")
+Wait(70ms, humanize=true)
+MouseUp("x1")
+
+var btn = Point(640, 360)
+var slot = Point(820, 540)
+
+// Curved mouse move + click inside a 6px radius
+Click(btn, radius=6, humanize=true)
+Wait(45ms, humanize=true)
+
+// Box-bounded click
+Click(slot, box_w=8, box_h=5, humanize=true)
+Wait(35ms, humanize=true)
+
+// Move without clicking, then roll the wheel one notch down
+MoveTo(Point(700, 420), humanize=true)
+Scroll(-120)
+
+// Key tap with humanized hold time
+PressKey("e", hold_min=40, hold_max=80, humanize=true)
+RandomWait(50, 110)
+
+// Key + right-click combo
+loop 3 {
+    KeyDown("4")
+    Wait(0.015s, humanize=true)
+    KeyUp("4")
+    Wait(0.02s, humanize=true)
+    MouseDown("right")
+    Wait(0.025s, humanize=true)
+    MouseUp("right")
+    Wait(0.04s, humanize=true)
+}
+
+// Window and pixel checks
+if not WindowTitle("Notepad") {
+    Log("Notepad not focused")
+} else {
+    if PixelAt(500, 400) == 0xFF0000 tolerance 15 {
+        PressKey("space", hold_min=35, hold_max=65, humanize=true)
+    }
+}
+
+loop 5 {
+    PressKey("f", hold_min=30, hold_max=55, humanize=true)
+    Wait(30ms, humanize=true)
+    break
+}
+
+repeat_until PixelAt(0, 0) == 0x000000 tolerance 255 {
+    Wait(20ms, humanize=true)
+}
+
+Log("Done")

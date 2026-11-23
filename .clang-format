@@ -1,0 +1,21 @@
+# Kept close to what the code already looked like: 4-space indent, indented
+# case labels, braces on the same line, 100 columns.
+BasedOnStyle: LLVM
+IndentWidth: 4
+ContinuationIndentWidth: 4
+ColumnLimit: 100
+AccessModifierOffset: -4
+IndentCaseLabels: true
+BreakBeforeBraces: Attach
+BreakConstructorInitializers: AfterColon
+ConstructorInitializerIndentWidth: 4
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLambdasOnASingleLine: Inline
+PointerAlignment: Left
+ReferenceAlignment: Left
+# Never reorder includes: windows.h has to come before shellapi.h, mmsystem.h
+# and friends, and sorting by name quietly breaks that on Windows only.
+SortIncludes: Never
+IncludeBlocks: Preserve
+SpaceAfterTemplateKeyword: false

@@ -1,0 +1,249 @@
+name: Build Undek Macro
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    # Needed so the release step is allowed to create one with GITHUB_TOKEN.
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -B build -DUNDEK_BUILD_TESTS=ON
+
+      - name: Build Release
+        run: cmake --build build --config Release
+
+      - name: Run unit tests
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Stage release package
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/UndekMacro | Out-Null
+          Copy-Item build/Release/undek.exe dist/UndekMacro/
+          Copy-Item README.md dist/UndekMacro/
+          Copy-Item CHANGELOG.md dist/UndekMacro/
+          Copy-Item -Recurse profiles dist/UndekMacro/profiles
+          Copy-Item -Recurse bindings dist/UndekMacro/bindings
+          Copy-Item -Recurse examples dist/UndekMacro/examples
+          Copy-Item -Recurse docs dist/UndekMacro/docs
+          New-Item -ItemType Directory -Force -Path dist/UndekMacro/macros | Out-Null
+          Compress-Archive -Path dist/UndekMacro/* -DestinationPath dist/UndekMacro-Windows-x64.zip -Force
+
+      - name: Check the package has what the app expects
+        run: |
+          $required = @('undek.exe', 'README.md', 'docs/language.md', 'profiles/default.json', 'bindings/default.json')
+          $missing = $required | Where-Object { -not (Test-Path "dist/UndekMacro/$_") }
+          if ($missing) { throw "Package is missing: $($missing -join ', ')" }
+          $examples = (Get-ChildItem dist/UndekMacro/examples -Filter *.undek -ErrorAction SilentlyContinue).Count
+          if ($examples -lt 1) { throw 'Package has no example scripts' }
+          Write-Host "Package looks complete ($examples example scripts)."
+
+      - name: Run the exe that was packaged
+        run: |
+          $exe = (Resolve-Path dist/UndekMacro/undek.exe).Path
+
+          # The exe has no console of its own, and PowerShell doesn't wait for a
+          # program like that: it read the exit code before the process had one,
+          # which is how this step first failed with an empty one. Starting it
+          # here waits for the end and keeps both of its streams.
+          function Invoke-Undek([string[]] $Arguments) {
+            $info = New-Object System.Diagnostics.ProcessStartInfo
+            $info.FileName = $exe
+            $info.Arguments = ($Arguments | ForEach-Object {
+                if ($_ -match '\s') { '"' + $_ + '"' } else { $_ }
+              }) -join ' '
+            $info.UseShellExecute = $false
+            $info.RedirectStandardOutput = $true
+            $info.RedirectStandardError = $true
+            $proc = [System.Diagnostics.Process]::Start($info)
+            $err = $proc.StandardError.ReadToEndAsync()
+            $out = $proc.StandardOutput.ReadToEnd()
+            $proc.WaitForExit()
+            [pscustomobject]@{ Code = $proc.ExitCode; Text = ($out + $err.Result).Trim() }
+          }
+
+          $version = Invoke-Undek @('--version')
+          if ($version.Code -ne 0) { throw "undek --version exited with $($version.Code): $($version.Text)" }
+          if ($version.Text -notmatch '^Undek Macro \d+\.\d+\.\d+') {
+            throw "unexpected version line: $($version.Text)"
+          }
+          Write-Host "Packaged exe says: $($version.Text)"
+
+          Push-Location dist/UndekMacro
+          try {
+            $scripts = Get-ChildItem examples/*.undek
+            foreach ($script in $scripts) {
+              $checked = Invoke-Undek @('check', $script.FullName)
+              if ($checked.Code -ne 0) {
+                throw "check reported problems in $($script.Name):`n$($checked.Text)"
+              }
+            }
+            Write-Host "Checked $($scripts.Count) example scripts."
+          } finally {
+            Pop-Location
+          }
+
+      # Every build gets a setup exe, not just a tag, so an installer can be
+      # tried from a branch without tagging a release first.
+      - name: Build the installer
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --no-progress -y
+            if ($LASTEXITCODE -ne 0) { throw "Installing Inno Setup failed with $LASTEXITCODE" }
+          }
+
+          # A tag names the release, so on a tag that name wins; anywhere else the
+          # version in CMakeLists.txt does, which is the one the exe was built with.
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          } else {
+            $project = Select-String -Path CMakeLists.txt -Pattern 'project\(UndekMacro VERSION ([0-9]+\.[0-9]+\.[0-9]+)' |
+              Select-Object -First 1
+            if (-not $project) { throw 'Could not read the version from CMakeLists.txt' }
+            $version = $project.Matches[0].Groups[1].Value
+          }
+
+          & $iscc "/DMyAppVersion=$version" 'installer\undek.iss'
+          if ($LASTEXITCODE -ne 0) { throw "The installer compiler failed with $LASTEXITCODE" }
+
+          $setup = "dist/UndekMacro-$version-setup.exe"
+          if (-not (Test-Path $setup)) { throw "Installer was not produced: expected $setup" }
+          $size = [math]::Round((Get-Item $setup).Length / 1MB, 2)
+          Write-Host "Built $setup ($size MB)."
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: UndekMacro-Windows-x64
+          path: |
+            dist/UndekMacro-Windows-x64.zip
+            dist/*-setup.exe
+            build/Release/undek.exe
+
+      - name: Publish GitHub Release on tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/UndekMacro-Windows-x64.zip
+            dist/*-setup.exe
+          generate_release_notes: true
+
+  # Formatting and warnings, pinned so the check is the same everywhere.
+  hygiene:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install the pinned formatter
+        run: pip install clang-format==23.1.5
+
+      - name: Check formatting
+        run: clang-format --dry-run --Werror $(git ls-files '*.cpp' '*.h')
+
+      - name: Configure with warnings as errors
+        run: >
+          cmake -B build -DUNDEK_BUILD_TESTS=ON
+          -DCMAKE_CXX_FLAGS="-Wall -Wextra -Werror"
+
+      - name: Build tests
+        run: cmake --build build -j 4
+
+      - name: Run tests
+        run: ctest --test-dir build --output-on-failure
+
+  # Same tests again under ASan/UBSan. Slow, but it's the only job that
+  # notices a stray read or a signed overflow.
+  tests-sanitizers:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure with sanitizers
+        run: >
+          cmake -B build -DUNDEK_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -g"
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+
+      - name: Build tests
+        run: cmake --build build -j 4
+
+      - name: Run tests
+        env:
+          ASAN_OPTIONS: detect_leaks=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: ctest --test-dir build --output-on-failure
+
+  # How much of the core the tests actually reach. The floor is deliberately
+  # modest: it's here to catch a change that adds a lot of code and no tests,
+  # not to make anyone chase a percentage.
+  coverage:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install gcovr
+        run: pip install gcovr
+
+      - name: Configure with coverage counters
+        run: >
+          cmake -B build -DUNDEK_BUILD_TESTS=ON
+          -DCMAKE_CXX_FLAGS="--coverage -O0"
+
+      - name: Build tests
+        run: cmake --build build -j 4
+
+      - name: Run tests
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Report line coverage
+        run: >
+          gcovr --root . --filter 'src/' --exclude 'src/editor/'
+          --print-summary --fail-under-line 75
+
+      - name: Keep the HTML report
+        if: always()
+        run: gcovr --root . --filter 'src/' --exclude 'src/editor/' --html --output coverage.html
+
+      - name: Upload the HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.html
+
+  # The GUI is Windows only, but the script/core tests run anywhere.
+  tests-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -B build -DUNDEK_BUILD_TESTS=ON
+
+      - name: Build tests
+        run: cmake --build build -j 4
+
+      - name: Run unit tests
+        run: ctest --test-dir build --output-on-failure

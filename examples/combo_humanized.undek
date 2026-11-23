@@ -1,0 +1,20 @@
+profile default_sigma=12
+
+KeyDown("4")
+Wait(0.015s, humanize=true)
+KeyUp("4")
+Wait(0.02s, humanize=true)
+
+MouseDown("right")
+Wait(0.025s, humanize=true)
+MouseUp("right")
+Wait(0.015s, humanize=true)
+
+KeyDown("8")
+Wait(0.02s, humanize=true)
+KeyUp("8")
+Wait(0.015s, humanize=true)
+
+MouseDown("right")
+Wait(0.02s, humanize=true)
+MouseUp("right")
