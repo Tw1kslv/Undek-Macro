@@ -201,3 +201,7 @@ MouseUp("right")
 ```
 
 More are in `examples/`.
+
+## License
+
+MIT. Use it, change it and share it as long as the copyright notice and permission notice travel with it. The full terms are in [LICENSE](LICENSE).
