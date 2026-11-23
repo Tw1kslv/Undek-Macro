@@ -10,7 +10,8 @@ namespace undek::script {
 
 class Parser {
 public:
-    explicit Parser(std::vector<Token> tokens, int include_depth = 0, int source_id = 0);
+    explicit Parser(std::vector<Token> tokens, int include_depth = 0, int source_id = 0,
+                    std::string base_dir = {});
     Program parse();
 
 private:
@@ -66,6 +67,9 @@ private:
     size_t pos_ = 0;
     int include_depth_ = 0;
     int source_id_ = 0;
+    // The folder the file being parsed lives in, so `include` finds a script kept
+    // beside it the same way a picture is found.
+    std::string base_dir_;
     std::vector<std::string> errors_;
 };
 

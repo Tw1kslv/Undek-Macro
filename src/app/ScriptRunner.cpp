@@ -44,7 +44,7 @@ int ScriptRunner::runSource(const std::string& source, const std::string& profil
     try {
         script::Lexer lexer(source);
         const auto tokens = lexer.tokenize();
-        script::Parser parser(tokens);
+        script::Parser parser(tokens, 0, 0, script_dir);
         const auto program = parser.parse();
 
         // A dry run never sends anything, so there's no reason to load the

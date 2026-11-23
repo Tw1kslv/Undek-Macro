@@ -4,6 +4,21 @@ Version numbers follow the usual `major.minor.patch` reading: patch releases fix
 things, minor releases add things, and 1.0 is the first release I'm willing to
 call finished.
 
+## 1.28.2
+
+- **An include is looked for beside the script.** `include "shared.undek"` only
+  searched the working folder and the app folder, so a file kept next to the
+  macro failed to load even though a picture beside it was found. The parser now
+  takes the script's folder, tries that first, and a nested include looks beside
+  the file it came from.
+- **A hotkey run finds the macro's own folder.** Starting a binding never passed
+  the script's folder to the runner, so `ImageExists("btn.bmp")` worked from the
+  editor and reported "not on screen" from a hotkey. Both paths pass it now.
+- **A `PixelAt` colour can't be cast out of range.** `PixelAt(0, 0) == 1e300`
+  converted a double an `unsigned int` can't hold, which is undefined behaviour
+  from a line of script. A colour outside `0x000000` to `0xFFFFFF` is refused
+  where it is parsed, the same way the other limits are.
+
 ## 1.28.1
 
 - **A wait can't be infinite.** A seconds value large enough that multiplying

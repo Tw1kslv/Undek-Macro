@@ -214,7 +214,12 @@ void HotkeyService::runBindingAsync(const Binding& binding) {
             undek::LogCallback log_cb = [this](const std::string& msg) {
                 notify(on_status_, "  " + msg);
             };
-            int result = ScriptRunner::runSource(source, resolvedProfile, false, &err, log_cb);
+            // The macro's own folder, so a picture or include kept beside it is
+            // found here too instead of only when the editor runs the script.
+            const std::string script_dir =
+                std::filesystem::path(resolvedPath).parent_path().string();
+            int result = ScriptRunner::runSource(source, resolvedProfile, false, &err, log_cb,
+                                                 nullptr, script_dir);
             if (result != 0) {
                 notify(on_status_, "[ERROR] " + binding.script + ": " + err);
             } else {

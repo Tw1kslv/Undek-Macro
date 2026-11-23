@@ -290,6 +290,38 @@ int main() {
         check(err.find("Include not found") != std::string::npos, "missing include reports error");
     }
     {
+        // A file kept beside the script is found the way a picture is, instead of
+        // only when the working folder happens to be that folder.
+        const auto original_cwd = std::filesystem::current_path();
+        const auto sandbox = original_cwd / "test_include_beside";
+        std::filesystem::remove_all(sandbox);
+        std::filesystem::create_directories(sandbox / "macros");
+        undek::script::writeFile((sandbox / "macros" / "shared.undek").string(),
+                                 "Log(\"from include\")\n");
+        const std::string profile_path = (sandbox / "profile.json").string();
+        check(undek::HumanizationProfile::defaults().saveToFile(profile_path),
+              "the include test can write its profile");
+
+        std::vector<std::string> logs;
+        std::string err;
+        const int code = undek::ScriptRunner::runSource(
+            "include \"shared.undek\"\n", profile_path, true, &err,
+            [&](const std::string& m) { logs.push_back(m); }, nullptr,
+            (sandbox / "macros").string());
+        check(code == 0, "an include beside the script is found (got '" + err + "')");
+        check(count(logs, "[log] from include") == 1, "and the included body runs");
+        std::filesystem::remove_all(sandbox);
+    }
+    {
+        std::string err;
+        runDry("if PixelAt(0,0) == 16777216 { Log(\"x\") }", &err);
+        check(err.find("0xFFFFFF") != std::string::npos,
+              "a colour past 24 bits is refused instead of cast (got '" + err + "')");
+        err.clear();
+        runDry("if PixelAt(0,0) == 0xFF0000 { Log(\"x\") }", &err);
+        check(err.empty(), "a normal 24-bit colour still parses (got '" + err + "')");
+    }
+    {
         std::string err;
         runDry("loop 1 { Log(\"x\") ", &err);
         check(!err.empty(), "unterminated block is an error");

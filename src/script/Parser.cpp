@@ -8,6 +8,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstdlib>
+#include <filesystem>
 #include <stdexcept>
 
 namespace undek::script {
@@ -52,8 +53,9 @@ bool isMouseButtonName(const std::string& name) {
 
 } // namespace
 
-Parser::Parser(std::vector<Token> tokens, int include_depth, int source_id) :
-    tokens_(std::move(tokens)), include_depth_(include_depth), source_id_(source_id) {}
+Parser::Parser(std::vector<Token> tokens, int include_depth, int source_id, std::string base_dir) :
+    tokens_(std::move(tokens)), include_depth_(include_depth), source_id_(source_id),
+    base_dir_(std::move(base_dir)) {}
 
 const Token& Parser::peek() const {
     static const Token end_token{TokenType::End, "", 0, 0, 0};
@@ -693,7 +695,13 @@ Condition Parser::condition() {
     }
     advance();
     expect(TokenType::Equals, "Expected == after PixelAt(...)");
-    c.expected_color = static_cast<unsigned int>(expectNumber("Expected a colour after =="));
+    const double colour = expectNumber("Expected a colour after ==");
+    // Colours are 24-bit, and a value past what an unsigned int holds used to be
+    // cast anyway, which is undefined behaviour from a line of script.
+    if (colour < 0.0 || colour > 16777215.0) {
+        throw std::runtime_error(lineErr("PixelAt colour must be between 0x000000 and 0xFFFFFF"));
+    }
+    c.expected_color = static_cast<unsigned int>(colour);
     c.has_color_check = true;
 
     if (check(TokenType::Identifier) && peek().text == "tolerance") {
@@ -804,11 +812,21 @@ std::unique_ptr<Stmt> Parser::includeStatement() {
     if (include_depth_ >= kMaxIncludeDepth) {
         throw std::runtime_error("include nesting too deep (possible cycle): " + stmt->path);
     }
-    std::string source = readFile(stmt->path);
+    // Beside the script first, because that is where a picture is found and a
+    // shared file sat next to the macro is the obvious place to put one. The
+    // working folder and the app folder still work.
+    std::string source;
+    std::string include_dir = base_dir_;
+    if (!base_dir_.empty()) {
+        const std::filesystem::path beside = std::filesystem::path(base_dir_) / stmt->path;
+        source = readFile(beside.string());
+        if (!source.empty()) include_dir = beside.parent_path().string();
+    }
+    if (source.empty()) source = readFile(stmt->path);
     if (source.empty()) source = readFile(AppPaths::resolve(stmt->path));
     if (source.empty()) throw std::runtime_error("Include not found: " + stmt->path);
     Lexer lexer(source);
-    Parser sub(lexer.tokenize(), include_depth_ + 1, source_id_ + 1);
+    Parser sub(lexer.tokenize(), include_depth_ + 1, source_id_ + 1, include_dir);
     stmt->body = std::move(sub.parse().statements);
     return stmt;
 }

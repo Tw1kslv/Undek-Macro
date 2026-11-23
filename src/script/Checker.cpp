@@ -152,7 +152,7 @@ std::vector<ScriptProblem> checkScript(const std::string& source, const std::str
     Program program;
     try {
         Lexer lexer(source);
-        Parser parser(lexer.tokenize());
+        Parser parser(lexer.tokenize(), 0, 0, base_dir);
         program = parser.parse();
     } catch (const std::exception& ex) {
         const std::string message = ex.what();
