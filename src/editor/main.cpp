@@ -463,10 +463,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     // thick frame instead of a caption keeps the resize border, the snap
     // behaviour and the drop shadow, and WS_EX_APPWINDOW keeps it on the
     // taskbar, which an unowned popup would otherwise not promise.
-    g_hwnd = CreateWindowEx(WS_EX_APPWINDOW, wc.lpszClassName,
-                            _T("Undek Macro v" UNDEK_VERSION),
-                            WS_POPUP | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX, 80,
-                            80, 1280, 720, nullptr, nullptr, wc.hInstance, nullptr);
+    g_hwnd = CreateWindowEx(WS_EX_APPWINDOW, wc.lpszClassName, _T("Undek Macro v" UNDEK_VERSION),
+                            WS_POPUP | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX, 80, 80,
+                            1280, 720, nullptr, nullptr, wc.hInstance, nullptr);
     if (g_hwnd) {
         applyWindowCorners(g_hwnd);
         SendMessageW(g_hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(app_icon));

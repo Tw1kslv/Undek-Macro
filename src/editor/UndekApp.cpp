@@ -55,8 +55,9 @@ enum class WindowGlyph { Minimize, Maximize, Close };
 void drawWindowControl(const ImVec2& a, const ImVec2& b, WindowGlyph glyph, bool hovered) {
     ImDrawList* dl = ImGui::GetWindowDrawList();
     if (hovered) {
-        dl->AddRectFilled(a, b, glyph == WindowGlyph::Close ? IM_COL32(178, 58, 58, 255)
-                                                            : IM_COL32(255, 255, 255, 30));
+        dl->AddRectFilled(a, b,
+                          glyph == WindowGlyph::Close ? IM_COL32(178, 58, 58, 255)
+                                                      : IM_COL32(255, 255, 255, 30));
     }
     const ImVec2 c((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f);
     const float r = (b.y - a.y) * 0.22f;
@@ -66,8 +67,7 @@ void drawWindowControl(const ImVec2& a, const ImVec2& b, WindowGlyph glyph, bool
             dl->AddLine(ImVec2(c.x - r, c.y), ImVec2(c.x + r, c.y), ink, 1.0f);
             break;
         case WindowGlyph::Maximize:
-            dl->AddRect(ImVec2(c.x - r, c.y - r), ImVec2(c.x + r, c.y + r), ink, 0.0f, 0,
-                        1.0f);
+            dl->AddRect(ImVec2(c.x - r, c.y - r), ImVec2(c.x + r, c.y + r), ink, 0.0f, 0, 1.0f);
             break;
         case WindowGlyph::Close:
             dl->AddLine(ImVec2(c.x - r, c.y - r), ImVec2(c.x + r, c.y + r), ink, 1.0f);
@@ -1207,10 +1207,12 @@ void UndekApp::renderMenuBar() {
         if (hwnd && left.released) {
             // Posted rather than handled here so the existing minimise-to-tray
             // and close-to-tray settings keep working the way they already do.
-            if (over_min) PostMessageW(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+            if (over_min)
+                PostMessageW(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
             else if (over_max)
                 ShowWindow(hwnd, IsZoomed(hwnd) ? SW_RESTORE : SW_MAXIMIZE);
-            else if (over_close) PostMessageW(hwnd, WM_CLOSE, 0, 0);
+            else if (over_close)
+                PostMessageW(hwnd, WM_CLOSE, 0, 0);
         }
 #endif
 
