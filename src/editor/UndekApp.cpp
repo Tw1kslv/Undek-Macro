@@ -1430,6 +1430,9 @@ void UndekApp::renderMacroList(float width, float height) {
             }
         }
 
+        // The gutter is a checkbox wide and the row is a frame high in both
+        // cases, so a macro without a binding sits on the same line as one with
+        // it instead of starting a few pixels left and a line shorter.
         if (has_bind) {
             bool en = bind_en;
             if (ImGui::Checkbox("##en", &en)) {
@@ -1439,9 +1442,10 @@ void UndekApp::renderMacroList(float width, float height) {
             }
             ImGui::SameLine();
         } else {
-            ImGui::Dummy(ImVec2(24, 0));
+            ImGui::Dummy(ImVec2(ImGui::GetFrameHeight(), 0.0f));
             ImGui::SameLine();
         }
+        ImGui::AlignTextToFramePadding();
 
         ImVec4 col =
             selected ? ImVec4(0.72f, 0.58f, 1.0f, 1.0f) : ImVec4(0.93f, 0.94f, 0.97f, 1.0f);

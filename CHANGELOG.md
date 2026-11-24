@@ -17,6 +17,11 @@ call finished.
   buttons act when they are released, like the system's own. Minimize follows
   the minimize to tray setting and otherwise leaves the window minimized on the
   taskbar, and close follows close to tray.
+- **The macro list lines up.** A macro with a binding sat in a taller row than
+  one without, and its name started a few pixels further right, because the
+  checkbox is a whole frame high and the empty space left where one would be
+  was neither as wide nor as tall. Every row now reserves that frame height, so
+  the names share one left edge and the rows are evenly spaced.
 - **The builder's loop count is readable.** The number sat in whatever width
   the two step buttons left over, which was barely wider than the digit itself,
   so it looked clipped and pushed to one side. It has a box of its own now, the
