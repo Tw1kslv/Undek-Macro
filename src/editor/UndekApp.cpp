@@ -2491,8 +2491,21 @@ void UndekApp::renderBuilderWindow() {
     const float wrap_btn_w = 155.0f;
     const float wrap_btn_x = ImGui::GetWindowContentRegionMax().x - wrap_btn_w;
 
-    ImGui::SetNextItemWidth(90);
+    // The two step buttons come out of the width ImGui is given, so a fixed
+    // padding left the number in a box barely wider than itself and pushed
+    // against one side. Padding it by the room that is left centres the value
+    // in its box, and the box grows with the digits instead of clipping them.
+    const ImGuiStyle& style = ImGui::GetStyle();
+    char loop_count_text[16];
+    std::snprintf(loop_count_text, sizeof(loop_count_text), "%d", builder_loop_count_);
+    const float loop_digits_w = ImGui::CalcTextSize(loop_count_text).x;
+    const float loop_field_w = (std::max)(44.0f, loop_digits_w + 2.0f * style.FramePadding.y);
+    const float loop_step_w = ImGui::GetFrameHeight() + style.ItemInnerSpacing.x;
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,
+                        ImVec2((loop_field_w - loop_digits_w) * 0.5f, style.FramePadding.y));
+    ImGui::SetNextItemWidth(loop_field_w + loop_step_w * 2.0f);
     ImGui::InputInt("Loop count", &builder_loop_count_, 1, 5);
+    ImGui::PopStyleVar();
     ImGui::SameLine(wrap_btn_x);
     if (ImGui::Button("Wrap in loop", ImVec2(wrap_btn_w, 0))) {
         const int wrapped =

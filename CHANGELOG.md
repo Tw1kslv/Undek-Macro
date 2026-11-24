@@ -17,6 +17,11 @@ call finished.
   buttons act when they are released, like the system's own. Minimize follows
   the minimize to tray setting and otherwise leaves the window minimized on the
   taskbar, and close follows close to tray.
+- **The builder's loop count is readable.** The number sat in whatever width
+  the two step buttons left over, which was barely wider than the digit itself,
+  so it looked clipped and pushed to one side. It has a box of its own now, the
+  value sits in the middle of it, and the box widens with the digits instead of
+  cutting them off.
 - **A window's title bar can be seen.** The bar of the settings, hotkey,
   debugger and builder windows was the same shade as the panel under it, so the
   bar you drag or close them by disappeared into the window. It has a colour of
