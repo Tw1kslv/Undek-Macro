@@ -1,7 +1,7 @@
 ; Inno Setup script for Undek Macro.
 ;
 ; Build (from the repo root, after the release package is staged in dist\UndekMacro):
-;   ISCC.exe /DMyAppVersion=1.28.2 installer\undek.iss
+;   ISCC.exe /DMyAppVersion=1.29.0 installer\undek.iss
 ;
 ; The install is per-user on purpose: no admin prompt, no UAC, and the app still
 ; keeps its macros next to the exe the way the portable version does.
@@ -9,7 +9,7 @@
 #define MyAppName "Undek Macro"
 #define MyAppExeName "undek.exe"
 #ifndef MyAppVersion
-  #define MyAppVersion "1.28.2"
+  #define MyAppVersion "1.29.0"
 #endif
 #ifndef SourceDir
   #define SourceDir "..\dist\UndekMacro"

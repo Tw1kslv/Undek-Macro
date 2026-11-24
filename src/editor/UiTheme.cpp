@@ -44,10 +44,13 @@ void ApplyModernTheme(float dpi_scale) {
     c[ImGuiCol_FrameBg] = ImVec4(0.14f, 0.14f, 0.18f, 1.0f);
     c[ImGuiCol_FrameBgHovered] = ImVec4(0.18f, 0.18f, 0.24f, 1.0f);
     c[ImGuiCol_FrameBgActive] = ImVec4(0.22f, 0.22f, 0.30f, 1.0f);
-    c[ImGuiCol_TitleBg] = ImVec4(0.08f, 0.08f, 0.10f, 1.0f);
-    c[ImGuiCol_TitleBgActive] = ImVec4(0.12f, 0.12f, 0.16f, 1.0f);
-    c[ImGuiCol_TitleBgCollapsed] = ImVec4(0.08f, 0.08f, 0.10f, 1.0f);
-    c[ImGuiCol_MenuBarBg] = ImVec4(0.09f, 0.09f, 0.12f, 1.0f);
+    // Lifted well above WindowBg: at 0.08 the title bar of the settings, builder
+    // and debugger windows was the same shade as the panel under it, so the bar
+    // you drag and close them by looked like it wasn't there.
+    c[ImGuiCol_TitleBg] = ImVec4(0.16f, 0.16f, 0.22f, 1.0f);
+    c[ImGuiCol_TitleBgActive] = ImVec4(0.26f, 0.23f, 0.40f, 1.0f);
+    c[ImGuiCol_TitleBgCollapsed] = ImVec4(0.14f, 0.14f, 0.19f, 0.94f);
+    c[ImGuiCol_MenuBarBg] = ImVec4(0.10f, 0.10f, 0.14f, 1.0f);
     c[ImGuiCol_ScrollbarBg] = ImVec4(0.08f, 0.08f, 0.10f, 1.0f);
     c[ImGuiCol_ScrollbarGrab] = ImVec4(0.28f, 0.30f, 0.38f, 1.0f);
     c[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.36f, 0.38f, 0.48f, 1.0f);

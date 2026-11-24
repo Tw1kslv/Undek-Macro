@@ -48,6 +48,88 @@
 namespace undek::editor {
 namespace {
 
+enum class WindowGlyph { Minimize, Maximize, Close };
+
+// A caption button drawn by hand: the app has no caption for the system to put
+// one in.
+void drawWindowControl(const ImVec2& a, const ImVec2& b, WindowGlyph glyph, bool hovered) {
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    if (hovered) {
+        dl->AddRectFilled(a, b, glyph == WindowGlyph::Close ? IM_COL32(178, 58, 58, 255)
+                                                            : IM_COL32(255, 255, 255, 30));
+    }
+    const ImVec2 c((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f);
+    const float r = (b.y - a.y) * 0.22f;
+    const ImU32 ink = IM_COL32(214, 217, 231, 255);
+    switch (glyph) {
+        case WindowGlyph::Minimize:
+            dl->AddLine(ImVec2(c.x - r, c.y), ImVec2(c.x + r, c.y), ink, 1.0f);
+            break;
+        case WindowGlyph::Maximize:
+            dl->AddRect(ImVec2(c.x - r, c.y - r), ImVec2(c.x + r, c.y + r), ink, 0.0f, 0,
+                        1.0f);
+            break;
+        case WindowGlyph::Close:
+            dl->AddLine(ImVec2(c.x - r, c.y - r), ImVec2(c.x + r, c.y + r), ink, 1.0f);
+            dl->AddLine(ImVec2(c.x + r, c.y - r), ImVec2(c.x - r, c.y + r), ink, 1.0f);
+            break;
+    }
+}
+
+#ifdef _WIN32
+// Hands the drag to Windows so it keeps native snapping, the move loop, and
+// restoring by dragging a maximized window. That loop swallows the mouse
+// release, so the ImGui item that started the drag is cleared by hand.
+void startWindowDrag(void* hwnd) {
+    if (!hwnd) return;
+    ReleaseCapture();
+    SendMessageW(static_cast<HWND>(hwnd), WM_NCLBUTTONDOWN, HTCAPTION, 0);
+    ImGui::ClearActiveID();
+}
+
+// The caption is read from Windows instead of from ImGui, whose idea of the
+// cursor can be a click behind: the system move loop of a drag swallows its
+// mouse moves, and the window only tracks the cursor while it has focus.
+//
+// The left button is polled once a frame, so its press and release are both
+// seen however fast a drag follows the previous one.
+struct ButtonEdges {
+    bool pressed = false;
+    bool released = false;
+};
+
+ButtonEdges pollLeftButton() {
+    static bool was_down = false;
+    const bool down = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
+    const ButtonEdges edges{down && !was_down, !down && was_down};
+    was_down = down;
+    return edges;
+}
+
+bool cursorInRect(void* hwnd, const ImVec2& a, const ImVec2& b) {
+    HWND window = static_cast<HWND>(hwnd);
+    POINT cursor;
+    POINT origin{0, 0};
+    if (!window || !GetCursorPos(&cursor) || !ClientToScreen(window, &origin)) return false;
+    const float x = static_cast<float>(cursor.x - origin.x);
+    const float y = static_cast<float>(cursor.y - origin.y);
+    return x >= a.x && x < b.x && y >= a.y && y < b.y;
+}
+#else
+void startWindowDrag(void*) {}
+struct ButtonEdges {
+    bool pressed = false;
+    bool released = false;
+};
+ButtonEdges pollLeftButton() {
+    return ButtonEdges{ImGui::IsMouseClicked(ImGuiMouseButton_Left),
+                       ImGui::IsMouseReleased(ImGuiMouseButton_Left)};
+}
+bool cursorInRect(void*, const ImVec2& a, const ImVec2& b) {
+    return ImGui::IsMouseHoveringRect(a, b);
+}
+#endif
+
 std::string normScriptPath(std::string p) {
     for (char& c : p) {
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
@@ -979,6 +1061,10 @@ void UndekApp::shutdown() {
     macros_on_ = false;
 }
 
+void UndekApp::setHostWindow(void* hwnd) {
+    hwnd_ = hwnd;
+}
+
 void UndekApp::renderMenuBar() {
     if (ImGui::BeginMenuBar()) {
         if (ImGui::BeginMenu("File")) {
@@ -1069,6 +1155,65 @@ void UndekApp::renderMenuBar() {
             if (ImGui::MenuItem("About")) show_about_ = true;
             ImGui::EndMenu();
         }
+
+        // The window has no caption, so this bar is the title bar too: the drag
+        // area after the menus, the name in the middle, and the three window
+        // buttons hard against the right edge. The bar rectangle is read from
+        // the window rather than from the cursor so that padding and the menu
+        // layout can't move the buttons around.
+        ImGuiWindow* win = ImGui::GetCurrentWindow();
+        const ImRect bar = win->MenuBarRect();
+        ImDrawList* dl = win->DrawList;
+        const float menus_end = ImGui::GetItemRectMax().x;
+        const float bar_h = bar.GetHeight();
+        const float btn_w = bar_h * 1.5f;
+        const float buttons_x = bar.Max.x - btn_w * 3.0f;
+
+        const ImVec2 min_a(buttons_x, bar.Min.y);
+        const ImVec2 min_b(buttons_x + btn_w, bar.Max.y);
+        const ImVec2 max_a(buttons_x + btn_w, bar.Min.y);
+        const ImVec2 max_b(buttons_x + btn_w * 2.0f, bar.Max.y);
+        const ImVec2 close_a(buttons_x + btn_w * 2.0f, bar.Min.y);
+        const ImVec2 close_b(bar.Max.x, bar.Max.y);
+        const ImVec2 drag_a(menus_end + 8.0f, bar.Min.y);
+        const ImVec2 drag_b(buttons_x, bar.Max.y);
+
+        const ButtonEdges left = pollLeftButton();
+        const bool over_min = cursorInRect(hwnd_, min_a, min_b);
+        const bool over_max = cursorInRect(hwnd_, max_a, max_b);
+        const bool over_close = cursorInRect(hwnd_, close_a, close_b);
+        const bool over_drag = drag_b.x - drag_a.x > 4.0f && cursorInRect(hwnd_, drag_a, drag_b);
+
+        drawWindowControl(min_a, min_b, WindowGlyph::Minimize, over_min);
+        drawWindowControl(max_a, max_b, WindowGlyph::Maximize, over_max);
+        drawWindowControl(close_a, close_b, WindowGlyph::Close, over_close);
+
+        // A drag starts on the press, as the system's own does. The caption
+        // buttons act on the release, also as the system's: a minimise asked
+        // for while the button is still held is undone by the release after it.
+        if (over_drag) ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+        if (left.pressed && over_drag) startWindowDrag(hwnd_);
+
+        const char* title = "Undek Macro";
+        const ImVec2 title_size = ImGui::CalcTextSize(title);
+        dl->AddText(ImVec2(bar.GetCenter().x - title_size.x * 0.5f,
+                           bar.Min.y + (bar_h - ImGui::GetFontSize()) * 0.5f),
+                    IM_COL32(196, 199, 216, 255), title);
+        dl->AddLine(ImVec2(bar.Min.x, bar.Max.y - 0.5f), ImVec2(bar.Max.x, bar.Max.y - 0.5f),
+                    IM_COL32(52, 50, 72, 255), 1.0f);
+
+#ifdef _WIN32
+        HWND hwnd = static_cast<HWND>(hwnd_);
+        if (hwnd && left.released) {
+            // Posted rather than handled here so the existing minimise-to-tray
+            // and close-to-tray settings keep working the way they already do.
+            if (over_min) PostMessageW(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+            else if (over_max)
+                ShowWindow(hwnd, IsZoomed(hwnd) ? SW_RESTORE : SW_MAXIMIZE);
+            else if (over_close) PostMessageW(hwnd, WM_CLOSE, 0, 0);
+        }
+#endif
+
         ImGui::EndMenuBar();
     }
 }

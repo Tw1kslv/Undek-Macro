@@ -4,6 +4,24 @@ Version numbers follow the usual `major.minor.patch` reading: patch releases fix
 things, minor releases add things, and 1.0 is the first release I'm willing to
 call finished.
 
+## 1.29.0
+
+- **The window draws its own title bar.** The editor is frameless now: no system
+  caption, and the name, the drag area and the minimize, maximize and close
+  buttons are drawn in ImGui along the top of the menu bar. A drag hands the
+  move to Windows, so snapping, double-click to maximize and the drop shadow
+  still work, and a drag started straight after the previous one is picked up
+  as readily as the first. The window keeps its taskbar button, maximizing
+  stops at the work area instead of covering the taskbar, and the corners are
+  rounded while it isn't maximized, without moving its bounds. The three
+  buttons act when they are released, like the system's own. Minimize follows
+  the minimize to tray setting and otherwise leaves the window minimized on the
+  taskbar, and close follows close to tray.
+- **A window's title bar can be seen.** The bar of the settings, hotkey,
+  debugger and builder windows was the same shade as the panel under it, so the
+  bar you drag or close them by disappeared into the window. It has a colour of
+  its own now, brighter again while that window has focus.
+
 ## 1.28.2
 
 - **An include is looked for beside the script.** `include "shared.undek"` only

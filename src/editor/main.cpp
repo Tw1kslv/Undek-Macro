@@ -23,7 +23,9 @@
 #define NOMINMAX
 #endif
 #include <windows.h> // first: the rest of these need its types
+#include <windowsx.h>
 #include <d3d11.h>
+#include <dwmapi.h>
 #include <shellapi.h>
 #include <tchar.h>
 #include <cstdio>
@@ -113,6 +115,19 @@ bool g_pause_was_down = false;
 
 bool windowShown() {
     return IsWindowVisible(g_hwnd) && !IsIconic(g_hwnd);
+}
+
+// Rounded corners are asked of the compositor rather than cut with a window
+// region: a region would leave the corners jagged and would have to be rebuilt
+// on every resize, while this leaves the window rectangle, the resize edges and
+// the shadow exactly as they are. Windows 10 has no such attribute and ignores
+// the call, which leaves the corners square.
+void applyWindowCorners(HWND hwnd) {
+    // DWMWA_WINDOW_CORNER_PREFERENCE; spelled out because the enum isn't in
+    // every SDK. 1 is don't round, 2 is round.
+    constexpr DWORD kCornerPreference = 33;
+    const int preference = IsZoomed(hwnd) ? 1 : 2;
+    DwmSetWindowAttribute(hwnd, kCornerPreference, &preference, sizeof(preference));
 }
 
 void showMainWindow() {
@@ -259,8 +274,15 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam)) return true;
     switch (msg) {
         case WM_SYSCOMMAND:
-            if ((wParam & 0xFFF0) == SC_MINIMIZE && undek::AppSettings::get().minimize_to_tray) {
-                ShowWindow(hWnd, SW_HIDE);
+            // The caption button asks to minimise, and the setting decides what
+            // that means: hide to the tray, or leave the window minimised with a
+            // taskbar button. A window without a caption is not minimised by
+            // DefWindowProc, so the request is carried out here either way.
+            if ((wParam & 0xFFF0) == SC_MINIMIZE) {
+                if (undek::AppSettings::get().minimize_to_tray)
+                    ShowWindow(hWnd, SW_HIDE);
+                else
+                    ShowWindow(hWnd, SW_MINIMIZE);
                 return 0;
             }
             break;
@@ -290,7 +312,54 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 }
             }
             return 0;
+        case WM_NCCALCSIZE:
+            // A thick frame reserves a border that the system paints, and it
+            // shows as a light band around the app once maximized. The whole
+            // window is client area instead, with the resize edges coming from
+            // WM_NCHITTEST below.
+            if (wParam == TRUE) return 0;
+            break;
+        case WM_NCHITTEST: {
+            if (IsZoomed(hWnd)) return HTCLIENT;
+            POINT cursor{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+            RECT rect;
+            GetWindowRect(hWnd, &rect);
+            constexpr int kEdge = 6;
+            const bool left = cursor.x < rect.left + kEdge;
+            const bool right = cursor.x >= rect.right - kEdge;
+            const bool top = cursor.y < rect.top + kEdge;
+            const bool bottom = cursor.y >= rect.bottom - kEdge;
+            if (top && left) return HTTOPLEFT;
+            if (top && right) return HTTOPRIGHT;
+            if (bottom && left) return HTBOTTOMLEFT;
+            if (bottom && right) return HTBOTTOMRIGHT;
+            if (left) return HTLEFT;
+            if (right) return HTRIGHT;
+            if (top) return HTTOP;
+            if (bottom) return HTBOTTOM;
+            return HTCLIENT;
+        }
+        case WM_GETMINMAXINFO: {
+            auto* info = reinterpret_cast<MINMAXINFO*>(lParam);
+            // A captionless window has no system minimum either, and below this
+            // the sidebar, editor and status bar stop fitting.
+            info->ptMinTrackSize.x = 900;
+            info->ptMinTrackSize.y = 600;
+            // A popup also maximizes over the whole monitor, taskbar included,
+            // so the work area is named explicitly.
+            MONITORINFO monitor{sizeof(monitor)};
+            if (GetMonitorInfo(MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST), &monitor)) {
+                const RECT& work = monitor.rcWork;
+                const RECT& full = monitor.rcMonitor;
+                info->ptMaxPosition.x = work.left - full.left;
+                info->ptMaxPosition.y = work.top - full.top;
+                info->ptMaxSize.x = work.right - work.left;
+                info->ptMaxSize.y = work.bottom - work.top;
+            }
+            return 0;
+        }
         case WM_SIZE:
+            if (wParam != SIZE_MINIMIZED) applyWindowCorners(hWnd);
             if (g_pd3dDevice != nullptr && wParam != SIZE_MINIMIZED) {
                 CleanupRenderTarget();
                 g_pSwapChain->ResizeBuffers(0, LOWORD(lParam), HIWORD(lParam), DXGI_FORMAT_UNKNOWN,
@@ -390,9 +459,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
                   GetModuleHandle(nullptr), app_icon,   nullptr, nullptr, nullptr,
                   _T("UndekMacro"),         app_icon};
     RegisterClassEx(&wc);
-    g_hwnd = CreateWindow(wc.lpszClassName, _T("Undek Macro v" UNDEK_VERSION), WS_OVERLAPPEDWINDOW,
-                          80, 80, 1280, 720, nullptr, nullptr, wc.hInstance, nullptr);
+    // Frameless: the caption is drawn in ImGui, in the menu bar. A popup with a
+    // thick frame instead of a caption keeps the resize border, the snap
+    // behaviour and the drop shadow, and WS_EX_APPWINDOW keeps it on the
+    // taskbar, which an unowned popup would otherwise not promise.
+    g_hwnd = CreateWindowEx(WS_EX_APPWINDOW, wc.lpszClassName,
+                            _T("Undek Macro v" UNDEK_VERSION),
+                            WS_POPUP | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX, 80,
+                            80, 1280, 720, nullptr, nullptr, wc.hInstance, nullptr);
     if (g_hwnd) {
+        applyWindowCorners(g_hwnd);
         SendMessageW(g_hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(app_icon));
         SendMessageW(g_hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(app_icon));
     }
@@ -431,6 +507,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     undek::bindings::HotkeyRegistry::setWindow(g_hwnd);
 
     undek::editor::UndekApp app;
+    app.setHostWindow(g_hwnd);
     app.showWelcome(first_run, UNDEK_VERSION);
 
     bool done = false;

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(UndekMacro VERSION 1.28.2 LANGUAGES CXX)
+project(UndekMacro VERSION 1.29.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -135,7 +135,7 @@ if(WIN32)
         UNDEK_VERSION="${PROJECT_VERSION}"
     )
     set_target_properties(undek PROPERTIES WIN32_EXECUTABLE TRUE)
-    target_link_libraries(undek PRIVATE user32 gdi32 d3d11 dxgi shell32 winmm)
+    target_link_libraries(undek PRIVATE user32 gdi32 d3d11 dxgi shell32 winmm dwmapi)
 endif()
 
 if(UNDEK_BUILD_TESTS)

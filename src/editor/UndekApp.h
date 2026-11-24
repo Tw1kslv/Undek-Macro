@@ -40,6 +40,8 @@ struct EditorLineToken {
 class UndekApp {
 public:
     UndekApp();
+    // The window the caption buttons act on; the title bar is drawn by ImGui.
+    void setHostWindow(void* hwnd);
     void renderFrame();
     void pollHotkeys();
     void onHotkeyMessage(int id);
@@ -106,6 +108,7 @@ private:
     std::string builderTargetLabel() const;
     void renderRecorderOverlay();
 
+    void* hwnd_ = nullptr;
     MacroLibrary library_;
     bindings::HotkeyService hotkeys_;
 
