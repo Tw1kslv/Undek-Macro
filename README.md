@@ -1,6 +1,6 @@
 # Undek Macro
 
-Undek Macro is a Windows desktop macro tool and `.undek` script runner written in C++17. It pairs an ImGui editor with natural input timing and curved mouse movement, so macros don't feel robotic. It is also small: the whole program is about 2.5 MB with no runtime dependencies.
+Undek Macro is a Windows desktop macro tool and `.undek` script runner written in C++17. It pairs an ImGui editor with natural input timing and curved mouse movement, so macros don't feel robotic. It is also small: the whole program is about 2.5 MB with no runtime dependencies and the RAM memory it takes up is about 15 MB.
 
 ## Installing
 
