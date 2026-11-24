@@ -3,12 +3,6 @@
   "default_profile": "profiles/default.json",
   "bindings": [
     {
-      "hotkey": "9",
-      "script": "examples/combo_humanized.undek",
-      "profile": "profiles/default.json",
-      "enabled": true
-    },
-    {
       "hotkey": "F8",
       "script": "examples/reaction_test.undek",
       "profile": "profiles/default.json",

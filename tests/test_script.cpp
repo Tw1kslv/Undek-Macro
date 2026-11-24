@@ -3390,7 +3390,7 @@ int main() {
             if (entry.path().extension() == ".undek") files.push_back(entry.path().string());
         }
         std::sort(files.begin(), files.end());
-        check(files.size() >= 3,
+        check(files.size() >= 2,
               "the examples folder is there (" + std::string(UNDEK_EXAMPLES_DIR) + ")");
 
         for (const auto& path : files) {

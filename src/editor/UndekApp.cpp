@@ -962,7 +962,7 @@ void UndekApp::insertRecordedScript() {
 void UndekApp::addBinding() {
     auto& cfg = hotkeys_.config();
     std::string hk = "Mouse4";
-    std::string sc = script_path_.empty() ? "examples/combo_humanized.undek" : script_path_;
+    std::string sc = script_path_.empty() ? "examples/reaction_test.undek" : script_path_;
     cfg.bindings.push_back({hk, sc, profile_path_, true});
     hotkeys_.save(bindings_path_);
     refreshBindingsIfListening();

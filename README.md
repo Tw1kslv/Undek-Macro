@@ -75,7 +75,7 @@ This builds `build\Release\undek.exe`. Run it with no arguments for the GUI, or 
 ```powershell
 .\build\Release\undek.exe
 .\build\Release\undek.exe run examples\showcase_all_features.undek
-.\build\Release\undek.exe dry-run examples\combo_humanized.undek
+.\build\Release\undek.exe dry-run examples\reaction_test.undek
 .\build\Release\undek.exe check examples\showcase_all_features.undek
 .\build\Release\undek.exe listen --bindings bindings\default.json
 .\build\Release\undek.exe --version
